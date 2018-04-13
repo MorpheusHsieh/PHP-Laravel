@@ -1,0 +1,377 @@
+Laravel-Excel download from databse
+
+
+1.Create laravel project 
+
+	$ composer create-project --prefer-dist laravel/laravel laravel-excels
+	
+
+2.Install 'maatwebsite/excel' package
+
+	(1) Install maatwebsite/excel
+
+		$ cd laravel-excels
+		$ composer update
+		$ composer require maatwebsite/excel
+	
+	(2) After installing package we are need to configure php.php file. 
+	
+	    open your confige/app.php file and changes some following
+
+			'providers' => [
+				....
+				'Maatwebsite\Excel\ExcelServiceProvider',
+			],
+			'aliases' => [
+				....
+				'Excel' => 'Maatwebsite\Excel\Facades\Excel',
+			],
+		
+		$ php artisan vendor:publish --all
+	
+	
+3.Setup database connection
+
+	Open .env file, find following parameters.
+
+		DB_CONNECTION=mysql
+		DB_HOST=10.10.1.197
+		DB_PORT=3306
+		DB_DATABASE=laravel-excel
+		DB_USERNAME=nexcom
+		DB_PASSWORD=nexcom
+
+	changes as following.
+	
+		DB_CONNECTION=mysql
+		DB_HOST=[your database host ip address]
+		DB_PORT=3306
+		DB_DATABASE=[your database name]
+		DB_USERNAME=[your username]
+		DB_PASSWORD=[your password]
+		
+
+4.Make migration
+
+	(1).Create migration
+	
+		$ php artisan make:migration post
+	
+		# Output
+		Created Migration: 2018_04_13_033909_post
+	
+	
+	(2).Changes 2018_04_13_033909_post.php
+
+		It look like:
+		
+			<?php
+			
+			use Illuminate\Support\Facades\Schema;
+			use Illuminate\Database\Schema\Blueprint;
+			use Illuminate\Database\Migrations\Migration;
+			
+			class Post extends Migration
+			{
+				public function up()
+				{
+					Schema::create('post', function (Blueprint $table)
+					{
+						$table->bigIncrements('id');
+						$table->string('title', 255);
+						$table->string('description', 255);
+					});
+				}
+				
+				public function down()
+				{
+					Schema::drop('post');
+				}
+			}
+	
+	(3).Run migrate
+	
+		$ php artisan migrate
+	
+		# Output 
+		Migrating: 2018_04_13_033909_post
+		Migrated:  2018_04_13_033909_post
+
+		
+4. Seed data
+
+	(1).Create seeder
+	
+		$ php artisan make:seeder post
+		
+		# Output
+		Seeder created successfully.
+
+	(2).Changes \database\seeds\post.php
+	
+		It look like:
+		
+			<?php
+			
+			use Illuminate\Database\Seeder;
+			
+			class post extends Seeder
+			{
+				/**
+				* Run the database seeds.
+				*
+				* @return void
+				*/
+				public function run()
+				{
+					for ($i=0; $i<10; $i++)
+					{
+						$len = rand(1, 100);
+						DB::table('post')->insert([
+							'title' => str_random(10),
+							'description' => str_random($len)
+						]);
+					}
+				}
+			}
+			
+	(3).Run Seeder
+		
+		$ php artisan db:seed --class=post
+		
+
+5.Create Model
+
+	$ l$ php artisan make:model Models/Post
+	
+	# Output
+	Model created successfully.
+		
+
+6.Make Route
+
+	Open \routes\web.php, add following text:
+	
+		Route::group(['as'=>'laravel-excels.', 'prefix'=>'laravel-excel'], function ()
+		{
+			Route::get('importExport', function() {
+				return view('importExport');
+			});
+			
+			// Single Sheet
+			Route::get('downloadExcel', 'PostController@downloadExcel');
+			
+			// Multi Sheets
+			Route::get('downloadExcelSheets', 'PostController@downloadExcelSheets');
+		});
+
+
+7.Make Model
+
+	Make app\Models\Post.php
+	
+	It look like:
+	
+		<?php
+		
+		namespace App\Models;
+		
+		use Illuminate\Database\Eloquent\Model;
+		
+		class Post extends Model
+		{
+		  protected $table = 'post';
+		  public $fillable = ['title','description'];
+		}
+		
+	
+8.Make Controller 	
+	
+	(1).Create PostController
+	
+		$ php artisan make:controller PostController
+
+		# Output
+		Controller created successfully.
+
+	(2).It look like:
+	
+			<?php
+			
+			namespace App\Http\Controllers;
+			
+			use Illuminate\Http\Request;
+			use App\Exports\PostExport;
+			use App\Exports\PostExportSheets;
+			use Session;
+			use Excel;
+			use Log;
+			
+			class PostController extends Controller
+			{
+			  public function downloadExcel()
+			  {
+				return Excel::download(new PostExport, 'post.xlsx');
+			  }
+				
+			  public function downloadExcelSheets()
+			  {
+				return Excel::download(new PostExportSheets, 'post2.xlsx');
+			  }
+			}	
+	
+9.Create custom classes
+
+	(1).Create app\Exports\PostExport.php
+
+		It look like:
+	
+		<?php
+
+		namespace App\Exports;
+		
+		use Maatwebsite\Excel\Concerns\FromCollection;
+		use Maatwebsite\Excel\Concerns\WithHeadings;
+		use App\Models\Post;
+		
+		class PostExport implements FromCollection, WithHeadings
+		{
+		  public function headings(): array
+		  {
+			return ['#', 'title', 'description'];
+		  }
+			
+		  public function collection()
+		  {
+			return Post::all();
+		  }
+		}
+		
+	(2).Create app\Exports\PostExportSheets.php
+	
+		It look like:
+	
+		<?php
+	
+		namespace App\Exports;
+		
+		use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+		use App\Exports\PostSheets;
+		
+		class PostExportSheets implements WithMultipleSheets
+		{
+			public function sheets(): array
+			{
+				$sheets = [];
+			
+				for ($page=1; $page<=2; $page++) {
+					$sheets[] = new PostSheets($page);
+				}
+				return $sheets;
+			}
+		}
+	
+	(3).Create app\Exports\PostSheets.php
+	
+		It look like:
+
+		<?php
+
+		namespace App\Exports;
+		
+		use Maatwebsite\Excel\Concerns\FromQuery;
+		use Maatwebsite\Excel\Concerns\WithTitle;
+		use Maatwebsite\Excel\Concerns\WithHeadings;
+		use App\Models\Post;
+		use Log;
+		
+		class PostSheets implements FromQuery, WithTitle, WithHeadings
+		{
+		  private $pageno;
+		  
+		  public function __construct(int $pageno)
+		  {
+		  	$this->pageno = $pageno;
+		  }
+		  
+		  public function headings(): array
+		  {
+		  	return ['#', 'title', 'description'];
+		  }
+		  
+		  public function query()
+		  {
+		  	$rows_per_page = 5;
+		  	$strt_row = ($this->pageno - 1) * $rows_per_page + 1;
+		  	$stop_row  = $this->pageno * $rows_per_page;
+		  	  $data = Post::query()
+		  			->where('id', '>=', $strt_row)
+		  			->where('id', '<=', $stop_row);
+		  	  return $data;
+		  }
+		  
+		  public function title(): string
+		  {
+		  	log::info("page no: ".$this->pageno);
+		  	return 'Post_P'. $this->pageno;
+		  }
+		}
+	
+
+10.Make View
+
+	(1).New File /resources/viers/importExport.blade.php
+	
+		It look like:
+		
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+				<meta charset="UTF-8">
+				<title>Laravel-Excel Example</title>
+			</head>
+			<body>
+			
+			<div class="container">
+				@if($message = Session::get('success'))
+					<div class="alert alert-info alert-dismissible fade in" role="alert">
+					<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+						<span aria-hidden="true">×</span>
+					</button>
+					<strong>Success!</strong> {{ $message }}
+					</div>
+				@endif
+			
+				{!! Session::forget('success') !!}
+				<br />
+				<a href="{{ URL::to('laravel-excel/downloadExcel') }}">
+					<button class="btn btn-success">Download Excel</button>
+				</a>
+			
+				<a href="{{ URL::to('laravel-excel/downloadExcelSheets') }}">
+					<button class="btn btn-success">Download Excel Sheets</button>
+				</a>
+			</div>
+			</body>
+			</html>		
+		
+		
+11.Test
+
+	Key-in '[your larave project alias name]\laravel-excel\importExport' on browser.
+	
+	Then, you should be able to download excel files.
+	
+	If you click 'Download Excel' button, will get a single sheet excel file.
+	
+	If you click 'Download Excel Sheets' button, will get a two sheets excel file.
+
+	Good luck.
+	
+
+refs:
+
+[1]	https://github.com/Maatwebsite/Laravel-Excel/blob/3.0/README.md	
+[2] https://laravelcode.com/post/excel-and-csv-import-export-using-maatwebsite-in-laravel-example#
+[3]	https://laravel-excel.maatwebsite.nl/docs/3.0/export/multiple-sheets
+	
