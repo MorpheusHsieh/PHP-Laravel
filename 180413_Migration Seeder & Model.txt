@@ -1,0 +1,125 @@
+Migration Seeder and Model
+
+
+1.Create laravel project 
+
+	$ composer create-project --prefer-dist laravel/laravel laravel-excels
+	
+
+2.Setup database connection
+
+	Open .env file, find following parameters.
+
+		DB_CONNECTION=mysql
+		DB_HOST=10.10.1.197
+		DB_PORT=3306
+		DB_DATABASE=laravel-excel
+		DB_USERNAME=nexcom
+		DB_PASSWORD=nexcom
+
+	changes as following.
+	
+		DB_CONNECTION=mysql
+		DB_HOST=[your database host ip address]
+		DB_PORT=3306
+		DB_DATABASE=[your database name]
+		DB_USERNAME=[your username]
+		DB_PASSWORD=[your password]
+		
+
+3.Make migration
+
+	(1).Create migration
+	
+		$ php artisan make:migration post
+	
+		# Output
+		Created Migration: 2018_04_13_033909_post
+	
+	
+	(2).Changes 2018_04_13_033909_post.php
+
+		It look like:
+		
+			<?php
+			
+			use Illuminate\Support\Facades\Schema;
+			use Illuminate\Database\Schema\Blueprint;
+			use Illuminate\Database\Migrations\Migration;
+			
+			class Post extends Migration
+			{
+				public function up()
+				{
+					Schema::create('post', function (Blueprint $table)
+					{
+						$table->bigIncrements('id');
+						$table->string('title', 255);
+						$table->string('description', 255);
+					});
+				}
+				
+				public function down()
+				{
+					Schema::drop('post');
+				}
+			}
+	
+	(3).Run migrate
+	
+		$ php artisan migrate
+	
+		# Output 
+		Migrating: 2018_04_13_033909_post
+		Migrated:  2018_04_13_033909_post
+
+		
+4. Seed data
+
+	(1).Create seeder
+	
+		$ php artisan make:seeder post
+		
+		# Output
+		Seeder created successfully.
+
+	(2).Changes \database\seeds\post.php
+	
+		It look like:
+		
+			<?php
+			
+			use Illuminate\Database\Seeder;
+			
+			class post extends Seeder
+			{
+				/**
+				* Run the database seeds.
+				*
+				* @return void
+				*/
+				public function run()
+				{
+					for ($i=0; $i<10; $i++)
+					{
+						$len = rand(1, 100);
+						DB::table('post')->insert([
+							'title' => str_random(10),
+							'description' => str_random($len)
+						]);
+					}
+				}
+			}
+			
+	(3).Run Seeder
+		
+		$ php artisan db:seed --class=post
+		
+
+4.Create Model
+
+	$ l$ php artisan make:model Models/Post
+	
+	# Output
+	Model created successfully.
+		
