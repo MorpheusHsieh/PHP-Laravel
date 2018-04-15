@@ -1,3 +1,31 @@
+  public function callExecPgSQL()
+  {
+    $sqlstr = "INSERT INTO xxxx";  // SQL statement`
+
+    $sqlSet = array();
+    $action = "insert";
+    $sqlSet[] = array('action' => $action, 'sqlstr' => $sqlstr);
+
+    $host = $this->DB_HOST;
+    $port = $this->DB_PORT;
+    $user = $this->DB_USER;
+    $pswd = $this->DB_PSWD;
+    $dbname = $this->DB_DB;
+
+    $result = $this->execPgSQL($host, $port, $user, $pswd, $dbname, $sqlSet);
+
+    $code = ($result['status']) ? 200 : 400;
+    $res_rows = $result['result_rows'][$action];
+    $response = array(
+      'res_rows' => $res_rows,
+      'code' => http_response_code($code)
+    );
+
+    return json_encode($response, JSON_UNESCAPED_UNICODE);
+  }
+
+  // ---------------------------------------------------------------------------
+  
   private function execPgSQL($host, $port, $user, $pswd, $dbname, $sqlSet)
   {
     $logs = array();
