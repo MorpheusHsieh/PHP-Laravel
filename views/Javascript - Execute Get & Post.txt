@@ -1,0 +1,50 @@
+<script type="text/javascript">
+
+  function execGetAPI(URL)
+  {
+    var jsonStr = '';
+
+    $.ajax({
+      url: URL,
+      async: false,
+      dataType: "json",
+      success: function(data) {
+        jsonStr = data;
+      },
+      beforeSend: function() {},
+      complete: function() {},
+      error:function(xhr, ajaxOptions, thrownError) {
+        alert(xhr.status+"\n"+thrownError);
+      }
+    });
+    // console.log(jsonStr);
+    return jsonStr;
+  }
+
+  // -------------------------------------------------------------------------
+
+  function execPostAPI(url, datas)
+  {
+    var csrf_token = $('meta[name="csrf-token"]').attr('content');
+    jQuery.ajaxSetup({
+      headers: { 'X-CSRF-TOKEN': csrf_token }
+    });
+
+    var result = '';
+    $.ajax({
+      type : 'post',
+      url: url,
+      data: datas,
+      dataType: 'json',
+      async: false,
+      success: function(data)  {
+        result = data;
+      },
+      error: function(xhr, ajaxOptions, thrownError)  {
+        alert(xhr.status+"\n"+thrownError);
+      }
+    });
+    return result;
+  }
+
+</script>
