@@ -1,0 +1,103 @@
+  private function execPgSQL($host, $port, $user, $pswd, $dbname, $sqlSet)
+  {
+    $logs = array();
+
+    $fetches = array();
+    $result_rows = array(
+      'insert' => 0,
+      'update' => 0,
+      'select' => 0,
+      'delete' => 0
+    );
+
+    $conn_str = "host=$host port=$port dbname=$dbname user=$user password=$pswd";
+
+    try {
+      // Create DB connection
+      $action = "connect to '$dbname' on $host:$port.";
+      $dbconn = pg_connect($conn_str) or die ("Could not $action ...");
+
+      $status = ($dbconn) ? true : pg_last_error($dbconn);
+      $logs[] = array (
+        'action' => $action,
+        'status' => $status
+      );
+      if (!$dbconn) { return $logs; }
+
+      // Begin transation
+      $action = "start transaction";
+      $sqlstr = 'BEGIN';
+      $pg_query = pg_query($dbconn, $sqlstr) or die ("Could not $action ...");
+
+      $status = ($pg_query) ? true : pg_last_error($pg_query);
+      $logs[] = array (
+        'action' => $action,
+        'status' => $status
+      );
+      if (!$pg_query) { return $logs; }
+
+      // Execute sql statements
+      $isCommit = true;
+      foreach ($sqlSet as $i => $sqlobj)
+      {
+        $action = $sqlobj['action'];
+        $sqlstr = $sqlobj['sqlstr'];
+        // log::info($sqlstr);
+        $pg_query = pg_query($dbconn, $sqlstr) or die ("Could not $action ...");
+
+        $status = ($pg_query) ? $pg_query : pg_last_error($pg_query);
+        $affected_rows = pg_affected_rows($pg_query);
+        $num_rows = pg_num_rows($pg_query);
+        $res_rows = ($action === 'select') ? $num_rows : $affected_rows;
+        // log::info($affected_rows); log::info($num_rows); log::info($res_rows);
+
+        // 如果有資料則取出來
+        if ($num_rows > 0) {
+          $fetches = pg_fetch_all($pg_query);
+          // log::info($fetches);
+        }
+
+        $logs[] = array (
+          'action' => $action,
+          'status' => $status,
+          'result_rows' => $res_rows
+        );
+
+        $isCommit = $isCommit && $pg_query;
+        if (!$isCommit) { break; }
+
+        $result_rows[$action] += $res_rows;
+      }
+
+      // Commit or Rollback
+      $action = ($isCommit) ? "Commit" : "Rollback";
+      $sqlstr = $action;
+      $pg_query = pg_query($dbconn, $sqlstr) or die ("Could not $action ...");
+
+      $status = ($pg_query) ? true : pg_last_error($pg_query);
+      $logs[] = array (
+        'action' => $action,
+        'status' => $status
+      );
+
+      // Close connection
+      $action = "Close connection";
+      $close = pg_close($dbconn);
+
+      $status = ($close) ? true : pg_last_error($close);
+      $logs[] = array (
+        'action' => $action,
+        'status' => $status
+      );
+    } catch (Exception $e) {
+      // log::info($e->message());
+      return $e->message();
+    }
+
+    $response = array (
+      'status' => true,
+      'result_rows' => $result_rows,
+      'fetches' => $fetches
+    );
+    return $response;
+  }
