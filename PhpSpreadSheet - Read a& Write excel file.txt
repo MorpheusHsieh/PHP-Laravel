@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as Writer;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx as Reader;
+use App\Models\Post;
+use Log;
+
+class PhpSpreadSheetController extends Controller
+{
+  public function helloWorld()
+  {
+		$spreadsheet = new Spreadsheet();
+
+		$sheet = $spreadsheet->getActiveSheet();
+		$sheet->setCellValue('A1', 'Hello World !');
+
+		$writer = new Xlsx($spreadsheet);
+		$writer->save('hello world.xlsx');
+
+		$spreadsheet->disconnectWorksheets();
+		unset($spreadsheet);
+  }
+
+  public function downloadExcel()
+  {
+  	$post = new Post; // DataSource
+	
+  	$table = $post->getTable();
+  	log::info($table);
+
+  	$columns = $post->getTableColumns();
+  	log::info($columns);
+
+		$spreadsheet = new Spreadsheet();
+
+		$sheet = $spreadsheet->getActiveSheet();
+		$sheet->setTitle($table);
+		$rownum = 1;
+
+		foreach($columns as $i => $field) {
+			$colStr = $this->getExcelColumnNames($i) . $rownum;
+			$sheet->setCellValue($colStr, $field);
+		}
+
+  	$dataSet = $post->all();
+  	foreach ($dataSet as $rowJson)
+  	{
+			$rownum++;
+			$colnum = 0;
+  		foreach (json_decode($rowJson) as $key => $cell)
+  		{
+  			// log::info($key.', '.$cell);
+ 			  $colStr = $this->getExcelColumnNames($colnum) . $rownum;
+			  $sheet->setCellValue($colStr, $cell);
+			  $colnum++;
+  		}
+  	}
+
+		$writer = new Writer($spreadsheet);
+		$writer->save("$table.xlsx");
+
+		$spreadsheet->disconnectWorksheets();
+		unset($spreadsheet);
+  }
+
+  // ---------------------------------------------------------------------------
+
+  public function readExcel()
+  {
+  	$table = 'post';
+  	$excel = "$table.xlsx";
+		$reader = new Reader();
+		$spreadsheet = $reader->load($excel);
+		$sheetData = $spreadsheet->getActiveSheet()->toArray();
+		log::info($sheetData);
+  }
+
+
+  // ---------------------------------------------------------------------------
+
+  private function getExcelColumnNames($num)
+  {
+    $numeric = $num % 26;
+    $letter = chr(65 + $numeric);
+    $num2 = intval($num / 26);
+    if ($num2 > 0) {
+        return getNameFromNumber($num2 - 1) . $letter;
+    } else {
+        return $letter;
+    }
+  }
+}
+
+
+// -----------------------------------------------------------------------------
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+  protected $table = 'post';
+  public $fillable = ['title','description'];
+
+  public function getTableColumns()
+  {
+    return $this->getConnection()->getSchemaBuilder()->getColumnListing($this->getTable());
+  }
+}
+
+// -----------------------------------------------------------------------------
